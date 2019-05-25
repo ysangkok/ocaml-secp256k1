@@ -229,6 +229,8 @@ module Sign = struct
     | P a, P b -> Bigstring.equal a b
     | R a, R b -> Bigstring.equal a b
 
+  external parse_schnorr : Context.t -> Bigstring.t -> Bigstring.t -> bool =
+    "caml_secp256k1_schnorr_parse" [@@noalloc]
   external parse_compact : Context.t -> Bigstring.t -> Bigstring.t -> bool =
     "caml_secp256k1_ecdsa_signature_parse_compact" [@@noalloc]
   external parse_der : Context.t -> Bigstring.t -> Bigstring.t -> bool =
@@ -254,6 +256,17 @@ module Sign = struct
 
   let read ctx buf =
     try Ok (read_exn ctx buf) with
+      Invalid_argument msg -> Error msg
+
+  let read_schnorr_exn ctx buf =
+    let signature = Bigstring.create 64 in
+    if parse_schnorr ctx signature buf then
+      P signature
+    else
+      invalid_arg "Sign.read_schnorr: signature could not be parsed"
+
+  let read_schnorr ctx buf =
+    try Ok (read_schnorr_exn ctx buf) with
       Invalid_argument msg -> Error msg
 
   let read_der_exn ctx buf =
@@ -338,6 +351,10 @@ module Sign = struct
     if normalize ctx normalized_sig signature then
       Some (P normalized_sig) else None
 
+  external sign_schnorr :
+    Context.t -> Bigstring.t -> Bigstring.t -> Bigstring.t -> bool =
+    "caml_secp256k1_schnorr_sign" [@@noalloc]
+
   (* [sign ctx signature msg sk] *)
   external sign :
     Context.t -> Bigstring.t -> Bigstring.t -> Bigstring.t -> bool =
@@ -348,11 +365,27 @@ module Sign = struct
     Context.t -> Bigstring.t -> Bigstring.t -> Bigstring.t -> bool =
     "caml_secp256k1_ecdsa_verify" [@@noalloc]
 
+  (* [verify_schnorr ctx pk msg signature] *)
+  external verify_schnorr :
+    Context.t -> Bigstring.t -> Bigstring.t -> Bigstring.t -> bool =
+    "caml_secp256k1_schnorr_verify" [@@noalloc]
+
   let check_msglen msg =
     let msglen = Bigstring.length msg in
     if msglen < msg_bytes
     then invalid_arg
         (Printf.sprintf "message is too small (%d < %d)" msglen msg_bytes)
+
+  let sign_schnorr_exn ctx buf ~sk ~msg =
+    check_msglen msg ;
+    let buflen = Bigstring.length buf in
+    if buflen < 64 then
+      invalid_arg "Sign.sign_schnorr_exn: buffer length too small";
+
+    match sign_schnorr ctx buf (Key.buffer sk) msg with
+    | true -> ()
+    (* i don't think the nonce generation can fail (by looking at the schnorr nonce c source)? omitting from error msg *)
+    | false -> invalid_arg "Sign.sign_schnorr: private key invalid"
 
   let sign_exn ctx buf ~sk ~msg =
     check_msglen msg ;
@@ -374,6 +407,11 @@ module Sign = struct
   let write_sign ctx buf ~sk ~msg =
     try Ok (write_sign_exn ctx ~sk ~msg buf)
     with Invalid_argument msg -> Error msg
+
+  let sign_schnorr_exn ctx ~sk msg =
+    let signature = Bigstring.create 64 in
+    sign_schnorr_exn ctx signature ~sk ~msg ;
+    P signature
 
   let sign_exn ctx ~sk msg =
     let signature = Bigstring.create plain_bytes in
@@ -433,9 +471,22 @@ module Sign = struct
                      siglen plain_bytes) ;
     verify ctx (Key.buffer pk) msg signature
 
+  let verify_schnorr_exn ctx ~pk ~msg ~signature =
+    let P signature = signature in
+    check_msglen msg ;
+    let siglen = Bigstring.length signature in
+    if siglen != 64 then
+      invalid_arg (Printf.sprintf "verify: schnorr signature not 64 bytes (%d != 64)"
+                     siglen ) ;
+    verify_schnorr ctx (Key.buffer pk) msg signature
+
   let verify_exn ctx ~pk ~msg ~signature =
     let P signature = to_plain ctx signature in
     verify_plain_exn ctx ~pk msg signature
+
+  let verify_schnorr ctx ~pk ~msg ~signature =
+    try Ok (verify_schnorr_exn ctx ~pk ~msg ~signature) with
+    | Invalid_argument msg -> Error msg
 
   let verify ctx ~pk ~msg ~signature =
     try Ok (verify_exn ctx ~pk ~msg ~signature) with

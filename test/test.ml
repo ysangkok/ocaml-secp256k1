@@ -44,6 +44,29 @@ module External = struct
     let b = Cstruct.of_bigarray b in
     assert (Alcotest.equal cstruct_testable a b)
 
+  let test_schnorr_1_seckey_1 () =
+    (*let sk = Key.read_sk_exn ctx (buffer_of_hex "0000000000000000000000000000000000000000000000000000000000000001") in*)
+    let pk = Key.read_pk_exn ctx (buffer_of_hex "0279BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F81798") in
+    let msg = buffer_of_hex "0000000000000000000000000000000000000000000000000000000000000000" in
+    let signature = Sign.read_schnorr_exn ctx (buffer_of_hex "787A848E71043D280C50470E8E1532B2DD5D20EE912A45DBDD2BD1DFBF187EF67031A98831859DC34DFFEEDDA86831842CCD0079E1F92AF177F7F22CC1DCED05") in
+    assert (Sign.verify_schnorr_exn ctx ~pk ~msg ~signature)
+
+  let test_schnorr_2_valid () =
+    let sk = Key.read_sk_exn ctx (buffer_of_hex "B7E151628AED2A6ABF7158809CF4F3C762E7160F38B4DA56A784D9045190CFEF") in
+    (*let pk = Key.read_pk_exn ctx (buffer_of_hex "02DFF1D77F2A671C5F36183726DB2341BE58FEAE1DA2DECED843240F7B502BA659") in*)
+    let msg = buffer_of_hex "243F6A8885A308D313198A2E03707344A4093822299F31D0082EFA98EC4E6C89" in
+    let signature = Sign.read_schnorr_exn ctx (buffer_of_hex "2A298DACAE57395A15D0795DDBFD1DCB564DA82B0F269BC70A74F8220429BA1D1E51A22CCEC35599B8F266912281F8365FFC2D035A230434A1A64DC59F7013FD") in
+    let sign = Sign.sign_schnorr_exn ctx ~sk msg in
+    assert (Sign.equal sign signature)
+
+  let test_schnorr_7_pubkey_not_on_curve () =
+    match Key.read_pk ctx (buffer_of_hex "03EEFDEA4CDB677750A420FEE807EACF21EB9898AE79B9768766E4FAA04A2D4A34") with
+    | Error _ -> ()
+    | Ok _ -> assert false
+    (*let msg = buffer_of_hex "4DF3C3F68FCC83B27E9D42C90431A72499F17875C81A599B566C9889B9696703" in
+    let signature = Sign.read_schnorr_exn ctx (buffer_of_hex "00000000000000000000003B78CE563F89A0ED9414F5AA28AD0D96D6795F9C6302A8DC32E64E86A333F20EF56EAC9BA30B7246D6D25E22ADB8C6BE1AEB08D49D") in
+    assert (not (Sign.verify_schnorr_exn ctx ~signature ~pk ~msg))*)
+
   let test_signature_of_string () =
     let sign_orig = buffer_of_hex
         "3044022079BE667EF9DCBBAC55A06295CE870B07029BFCDB2DCE28D959F2815B16F817980220294F14E883B3F525B5367756C2A11EF6CF84B730B36C17CB0C56F0AAB2C98589" in
@@ -116,6 +139,9 @@ module External = struct
     | Ok recovered -> assert (Key.equal recovered pubkey)
 
   let runtest = [
+    "schnorr_7_pubkey_not_on_curve", `Quick, test_schnorr_7_pubkey_not_on_curve ;
+    "schnorr_1_seckey_1", `Quick, test_schnorr_1_seckey_1 ;
+    "schnorr_2_valid", `Quick, test_schnorr_2_valid ;
     "signature_of_string", `Quick, test_signature_of_string ;
     "valid_signature", `Quick, test_valid_signature ;
     "invalid_signature", `Quick, test_invalid_signature ;

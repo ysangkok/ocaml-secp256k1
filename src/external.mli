@@ -123,6 +123,8 @@ module Sign : sig
   val read_exn : Context.t -> Bigstring.t -> plain t
   val read_der : Context.t -> Bigstring.t -> (plain t, string) result
   val read_der_exn : Context.t -> Bigstring.t -> plain t
+  val read_schnorr : Context.t -> Bigstring.t -> (plain t, string) result
+  val read_schnorr_exn : Context.t -> Bigstring.t -> plain t
 
   val read_recoverable :
     Context.t -> Bigstring.t -> (recoverable t, string) result
@@ -157,6 +159,9 @@ module Sign : sig
 
   val sign : Context.t -> sk:Key.secret Key.t -> Bigstring.t -> (plain
                                                                    t, string) result
+
+  val sign_schnorr_exn : Context.t -> sk:Key.secret Key.t -> Bigstring.t ->
+    plain t
 
   val sign_exn : Context.t -> sk:Key.secret Key.t -> Bigstring.t ->
     plain t
@@ -196,6 +201,12 @@ module Sign : sig
 
   val verify : Context.t -> pk:Key.public Key.t -> msg:Bigstring.t ->
     signature:_ t -> (bool, string) result
+
+  val verify_schnorr : Context.t -> pk:Key.public Key.t -> msg:Bigstring.t ->
+    signature:plain t -> (bool, string) result
+
+  val verify_schnorr_exn : Context.t -> pk:Key.public Key.t -> msg:Bigstring.t ->
+    signature:plain t -> bool
 
   (** {4 Recovery} *)
 

@@ -6,6 +6,7 @@
 
 #include "secp256k1.h"
 #include "secp256k1_recovery.h"
+#include "secp256k1_schnorrsig.h"
 
 /* Accessing the secp256k1_context * part of an OCaml custom block */
 #define Context_val(v) (*((secp256k1_context **) Data_custom_val(v)))
@@ -133,6 +134,12 @@ CAMLprim value caml_secp256k1_ec_pubkey_combine(value ctx, value out, value pks)
                                                size));
 }
 
+CAMLprim value caml_secp256k1_schnorr_parse (value ctx, value buf, value sig) {
+    return Val_bool(secp256k1_schnorrsig_parse (Context_val(ctx),
+                                                Caml_ba_data_val(buf),
+                                                Caml_ba_data_val(sig)));
+}
+
 CAMLprim value caml_secp256k1_ecdsa_signature_parse_compact (value ctx, value buf, value sig) {
     return Val_bool(secp256k1_ecdsa_signature_parse_compact (Context_val(ctx),
                                                              Caml_ba_data_val(buf),
@@ -159,6 +166,22 @@ CAMLprim value caml_secp256k1_ecdsa_verify (value ctx, value pubkey, value msg, 
                                             Caml_ba_data_val(pubkey)));
 }
 
+CAMLprim value caml_secp256k1_schnorr_verify (value ctx, value pubkey, value msg, value signature) {
+    return Val_bool(secp256k1_schnorrsig_verify (Context_val(ctx),
+                                            Caml_ba_data_val(signature),
+                                            Caml_ba_data_val(msg),
+                                            Caml_ba_data_val(pubkey)));
+}
+
+// int secp256k1_schnorrsig_sign(const secp256k1_context* ctx, secp256k1_schnorrsig *sig, int *nonce_is_negated, const unsigned char *msg32, const unsigned char *secke    y, secp256k1_nonce_function noncefp, void *ndata) {
+CAMLprim value caml_secp256k1_schnorr_sign (value ctx, value buf, value seckey, value msg) {
+    return Val_bool(secp256k1_schnorrsig_sign (Context_val(ctx),
+                                          Caml_ba_data_val(buf),
+                                          NULL,
+                                          Caml_ba_data_val(msg),
+                                          Caml_ba_data_val(seckey),
+                                          NULL, NULL));
+}
 
 CAMLprim value caml_secp256k1_ecdsa_sign (value ctx, value buf, value seckey, value msg) {
     return Val_bool(secp256k1_ecdsa_sign (Context_val(ctx),
